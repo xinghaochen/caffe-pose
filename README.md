@@ -1,3 +1,15 @@
+
+# Caffe-Pose
+
+Modified Caffe that supports hand pose estimation.
+
+## Changelog
+
+- Merged ROIPoolingLayer from rbgirshick's [caffe-fast-rcnn](https://github.com/rbgirshick/caffe-fast-rcnn)
+- Merged SmoothL1LossLayer from rbgirshick's [caffe-fast-rcnn](https://github.com/rbgirshick/caffe-fast-rcnn)
+
+-------
+
 # Caffe
 
 [![Build Status](https://travis-ci.org/BVLC/caffe.svg?branch=master)](https://travis-ci.org/BVLC/caffe)

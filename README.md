@@ -5,8 +5,8 @@ Modified Caffe that supports hand pose estimation.
 
 ## Changelog
 
-- Merged ROIPoolingLayer from rbgirshick's [caffe-fast-rcnn](https://github.com/rbgirshick/caffe-fast-rcnn)
-- Merged SmoothL1LossLayer from rbgirshick's [caffe-fast-rcnn](https://github.com/rbgirshick/caffe-fast-rcnn)
+- Merged ROIPoolingLayer from rbgirshick's [caffe-fast-rcnn](https://github.com/rbgirshick/caffe-fast-rcnn/tree/0dcd397b29507b8314e252e850518c5695efbb83)
+- Merged SmoothL1LossLayer from rbgirshick's [caffe-fast-rcnn](https://github.com/rbgirshick/caffe-fast-rcnn/tree/0dcd397b29507b8314e252e850518c5695efbb83)
 
 -------
 

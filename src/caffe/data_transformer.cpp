@@ -1,5 +1,7 @@
+
 #ifdef USE_OPENCV
 #include <opencv2/core/core.hpp>
+#include <opencv2/imgproc.hpp>
 #endif  // USE_OPENCV
 
 #include <string>
@@ -323,6 +325,180 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& cv_img,
     }
   }
 }
+
+
+// --------------------------------------------------------------------
+// functions below are added to support hand pose estimation using caffe
+// By Hengkai Guo, Xinghao Chen
+
+template<typename Dtype>
+void DataTransformer<Dtype>::Transform(const cv::Mat& cv_img,
+        const vector<vector<float> >& points, Blob<Dtype>* transformed_blob,
+        Blob<Dtype>* transformed_point) {
+  const int crop_size = param_.crop_size();
+  const int img_channels = cv_img.channels();
+  const int img_height = cv_img.rows;
+  const int img_width = cv_img.cols;
+
+  // Check dimensions.
+  const int channels = transformed_blob->channels();
+  const int height = transformed_blob->height();
+  const int width = transformed_blob->width();
+  const int num = transformed_blob->num();
+
+  CHECK_EQ(channels, img_channels);
+  CHECK_LE(height, img_height);
+  CHECK_LE(width, img_width);
+  CHECK_GE(num, 1);
+
+  // CHECK(cv_img.depth() == CV_8U) << "Image data type must be unsigned byte";
+
+  const Dtype scale = param_.scale();
+  const bool do_mirror = param_.mirror() && Rand(2);
+  const bool has_mean_file = param_.has_mean_file();
+  const bool has_mean_values = mean_values_.size() > 0;
+
+  CHECK_GT(img_channels, 0);
+  CHECK_GE(img_height, crop_size);
+  CHECK_GE(img_width, crop_size);
+
+  Dtype* mean = NULL;
+  if (has_mean_file) {
+    CHECK_EQ(img_channels, data_mean_.channels());
+    CHECK_EQ(img_height, data_mean_.height());
+    CHECK_EQ(img_width, data_mean_.width());
+    mean = data_mean_.mutable_cpu_data();
+  }
+  if (has_mean_values) {
+    CHECK(mean_values_.size() == 1 || mean_values_.size() == img_channels) <<
+      "Specify either 1 mean_value or as many as channels: " << img_channels;
+    if (img_channels > 1 && mean_values_.size() == 1) {
+      // Replicate the mean_value for simplicity
+      for (int c = 1; c < img_channels; ++c) {
+        mean_values_.push_back(mean_values_[0]);
+      }
+    }
+  }
+
+  // random ratation
+  bool is_rotate = param_.is_rotate();
+  double rotate_deg = 0;
+  if (is_rotate) {
+    double max_deg = abs(param_.rotate_deg());
+    rotate_deg = RandU(-max_deg, max_deg);
+  }
+  // random translation
+  bool is_trans = param_.is_trans();
+  double trans_dx = 0;
+  double trans_dy = 0;
+  if (is_trans) {
+    double max_x = abs(param_.trans_dx());
+    double max_y = abs(param_.trans_dy());
+    trans_dx = RandU(-max_x, max_x);
+    trans_dy = RandU(-max_y, max_y);
+  }
+  // random scale
+  bool is_zoom = param_.is_zoom();
+  double zoom_scale = 1.0;
+  if (is_zoom) {
+    double max_scale = param_.zoom_scale();
+    zoom_scale += RandU(-max_scale, max_scale);
+  }
+  // do random rotation, translation and scale
+  cv::Point2f center(img_width / 2.0 - 0.5, img_height / 2.0 - 0.5);
+  cv::Mat res_img(cv_img.clone());
+  vector<vector<float> > new_points(points);
+  if (is_zoom || is_rotate || is_trans || do_mirror) {
+    cv::Mat trans_mat = cv::getRotationMatrix2D(center, rotate_deg, 1.0);
+    trans_mat.at<double>(0, 2) += trans_dx;
+    trans_mat.at<double>(1, 2) += trans_dy;
+    for (int i = 0; i < 3; ++i) {
+      trans_mat.at<double>(0, i) *= zoom_scale;
+      trans_mat.at<double>(1, i) *= zoom_scale;
+    }
+    trans_mat.at<double>(0, 2) += (1 - zoom_scale) * center.x;
+    trans_mat.at<double>(1, 2) += (1 - zoom_scale) * center.y;
+
+    cv::warpAffine(res_img, res_img, trans_mat, res_img.size(),
+            cv::INTER_LINEAR, cv::BORDER_CONSTANT, 1.0);
+
+    for (size_t i = 0; i < new_points.size(); ++i) {
+      float tx = (points[i][0] + 1) / 2 * (img_width - 1);
+      float ty = (points[i][1] + 1) / 2 * (img_height - 1);
+      new_points[i][0] = trans_mat.at<double>(0, 0) * tx
+          + trans_mat.at<double>(0, 1) * ty + trans_mat.at<double>(0, 2);
+      new_points[i][1] = trans_mat.at<double>(1, 0) * tx
+          + trans_mat.at<double>(1, 1) * ty + trans_mat.at<double>(1, 2);
+      if (do_mirror) {
+          new_points[i][0] = img_width - 1 - new_points[i][0];
+      }
+      new_points[i][0] = new_points[i][0] / (img_width - 1) * 2 - 1;
+      new_points[i][1] = new_points[i][1] / (img_height - 1) * 2 - 1;
+    }
+  }
+
+  int h_off = 0;
+  int w_off = 0;
+  cv::Mat cv_cropped_img = res_img;
+  if (crop_size) {
+    CHECK_EQ(crop_size, height);
+    CHECK_EQ(crop_size, width);
+    // We only do random crop when we do training.
+    if (phase_ == TRAIN) {
+      h_off = Rand(img_height - crop_size + 1);
+      w_off = Rand(img_width - crop_size + 1);
+    } else {
+      h_off = (img_height - crop_size) / 2;
+      w_off = (img_width - crop_size) / 2;
+    }
+    cv::Rect roi(w_off, h_off, crop_size, crop_size);
+    cv_cropped_img = cv_img(roi);
+  } else {
+    CHECK_EQ(img_height, height);
+    CHECK_EQ(img_width, width);
+  }
+
+  CHECK(cv_cropped_img.data);
+
+  Dtype* transformed_data = transformed_blob->mutable_cpu_data();
+  cv_cropped_img.convertTo(cv_cropped_img, CV_32F);
+  int top_index;
+  for (int h = 0; h < height; ++h) {
+    const float* ptr = cv_cropped_img.ptr<float>(h);
+    int img_index = 0;
+    for (int w = 0; w < width; ++w) {
+      for (int c = 0; c < img_channels; ++c) {
+        if (do_mirror) {
+          top_index = (c * height + h) * width + (width - 1 - w);
+        } else {
+          top_index = (c * height + h) * width + w;
+        }
+        Dtype pixel = static_cast<Dtype>(ptr[img_index++]);
+        if (has_mean_file) {
+          int mean_index = (c * img_height + h_off + h) * img_width + w_off + w;
+          transformed_data[top_index] =
+            (pixel - mean[mean_index]) * scale;
+        } else {
+          if (has_mean_values) {
+            transformed_data[top_index] =
+              (pixel - mean_values_[c]) * scale;
+          } else {
+            transformed_data[top_index] = pixel * scale;
+          }
+        }
+      }
+    }
+  }
+
+  Dtype* point_data = transformed_point->mutable_cpu_data();
+  for (size_t i = 0, k = 0; i < new_points.size(); ++i) {
+    for (size_t j = 0; j < new_points[i].size(); ++j) {
+      point_data[k++] = new_points[i][j];
+    }
+  }
+}
+// --------------------------------------------------------------------
+
 #endif  // USE_OPENCV
 
 template<typename Dtype>
@@ -521,7 +697,9 @@ vector<int> DataTransformer<Dtype>::InferBlobShape(
 
 template <typename Dtype>
 void DataTransformer<Dtype>::InitRand() {
-  const bool needs_rand = param_.mirror() ||
+  const bool needs_rand = param_.mirror()
+      || param_.is_rotate() || param_.is_trans()
+      || param_.is_zoom() ||
       (phase_ == TRAIN && param_.crop_size());
   if (needs_rand) {
     const unsigned int rng_seed = caffe_rng_rand();
@@ -539,6 +717,19 @@ int DataTransformer<Dtype>::Rand(int n) {
       static_cast<caffe::rng_t*>(rng_->generator());
   return ((*rng)() % n);
 }
+
+// --------------------------------------------------------------------
+// functions below are added to support hand pose estimation using caffe
+// By Hengkai Guo, Xinghao Chen
+template <typename Dtype>
+double DataTransformer<Dtype>::RandU(double min_val, double max_val) {
+  CHECK(rng_);
+  caffe::rng_t* rng =
+      static_cast<caffe::rng_t*>(rng_->generator());
+  double val = (double)((*rng)()) / rng->max();
+  return min_val + (max_val - min_val) * val;
+}
+// --------------------------------------------------------------------
 
 INSTANTIATE_CLASS(DataTransformer);
 

@@ -145,6 +145,33 @@ cv::Mat DecodeDatumToCVMatNative(const Datum& datum);
 cv::Mat DecodeDatumToCVMat(const Datum& datum, bool is_color);
 
 void CVMatToDatum(const cv::Mat& cv_img, Datum* datum);
+
+// --------------------------------------------------------------------
+// functions below are added to support hand pose estimation using caffe
+// By Hengkai Guo, Xinghao Chen
+
+// load depth image to Mat
+cv::Mat ReadDepthImageToCVMat(const string& filename, PoseDataParameter_Dataset dataset);
+
+cv::Mat ReadDepthImageToCVMat(const string& filename, const int height,
+        const int width, PoseDataParameter_Dataset dataset);
+
+// caculate center from depth image
+void GetCenter(const cv::Mat& cv_img, vector<float>& center, int lower, int upper);
+// caculate center from depth image using a bounding box
+void GetCenterByBboxFast(const cv::Mat& cv_img, vector<float> bbox, vector<float>& center, int lower, int upper);
+
+// crop the depth image to get hand patch within a 3D cube
+cv::Mat CropImage(const cv::Mat& cv_img, vector<vector<float> >& points,
+        const vector<float>& center,
+        const vector<int>& cube_length, float fx, float fy, int height, int width);
+// crop the depth image to get hand patch within a 3D cube
+// besides, all pixels outside the bounding box will be discarded
+cv::Mat CropImageInBbox(const cv::Mat& cv_img, vector<float> bbox, vector<vector<float> >& points,
+        const vector<float>& center, const vector<int>& cube_length,
+        float fx, float fy, int height, int width);
+// --------------------------------------------------------------------
+
 #endif  // USE_OPENCV
 
 }  // namespace caffe

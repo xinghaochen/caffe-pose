@@ -75,6 +75,24 @@ class DataTransformer {
    *    set_cpu_data() is used. See image_data_layer.cpp for an example.
    */
   void Transform(const cv::Mat& cv_img, Blob<Dtype>* transformed_blob);
+
+  // --------------------------------------------------------------------
+  // functions below are added to support hand pose estimation using caffe
+  // By Hengkai Guo, Xinghao Chen
+  /**
+   * @brief Applies the transformation an image (cv_img) and corresponding
+   * labels (points)
+   * @param cv_img
+   *    cv::Mat containing the data to be transformed.
+   *     vector<vector<float> > containing the labels
+   * @param transformed_blob
+   *    This is destination blob. It can be part of top blob's data if
+   *    set_cpu_data() is used. See image_data_layer.cpp for an example.
+   */
+  void Transform(const cv::Mat& cv_img, const vector<vector<float> >& points,
+        Blob<Dtype>* transformed_blob, Blob<Dtype>* transformed_point);
+  // --------------------------------------------------------------------
+
 #endif  // USE_OPENCV
 
   /**
@@ -137,6 +155,9 @@ class DataTransformer {
    *    A uniformly random integer value from ({0, 1, ..., n-1}).
    */
   virtual int Rand(int n);
+
+  double RandU(double min_val, double max_val);
+
 
   void Transform(const Datum& datum, Dtype* transformed_data);
   // Tranformation parameters

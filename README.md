@@ -3,10 +3,30 @@
 
 Modified Caffe that supports hand pose estimation.
 
+## Features
+- Data layers for ICVL, NYU, MSRA, Hands17 hand pose dataset
+- PoseDistance layer to display mean joint error in training
+- tools/output_pose to save predicted labels
+- Baseline for hand pose estimation in ICVL, NYU, MSRA dataset
+
+## Files have been changed (compared with [caffe@e963ef4](https://github.com/BVLC/caffe/tree/e963ef4eff86f07b67a23dfffc57f7e918959bd8))
+- data_transformer.hpp/cpp (functions added and modified)
+- io.hpp/cpp (functions added and modified)
+- smooth_l1_loss_layer.hpp/cpp (added, from rbgirshick's [caffe-fast-rcnn](https://github.com/rbgirshick/caffe-fast-rcnn/tree/0dcd397b29507b8314e252e850518c5695efbb83))
+- roi_pooling_layer.hpp/cpp (added, from rbgirshick's [caffe-fast-rcnn](https://github.com/rbgirshick/caffe-fast-rcnn/tree/0dcd397b29507b8314e252e850518c5695efbb83))
+- pose_data_layer.hpp/cpp (added)
+- pose_distance_layer.hpp/cpp (add)
+- tools/output_pose (added)
+- caffe.proto (parameters added and modified)
+
 ## Changelog
 
+- Added tools/output_pose
+- Added PoseDistanceLayer
+- Added PoseDataLayer
 - Merged ROIPoolingLayer from rbgirshick's [caffe-fast-rcnn](https://github.com/rbgirshick/caffe-fast-rcnn/tree/0dcd397b29507b8314e252e850518c5695efbb83)
 - Merged SmoothL1LossLayer from rbgirshick's [caffe-fast-rcnn](https://github.com/rbgirshick/caffe-fast-rcnn/tree/0dcd397b29507b8314e252e850518c5695efbb83)
+- Forked caffe from [caffe@e963ef4](https://github.com/BVLC/caffe/tree/e963ef4eff86f07b67a23dfffc57f7e918959bd8)
 
 -------
 

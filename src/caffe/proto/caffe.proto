@@ -308,7 +308,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 149 (last added: smooth_l1_loss_param)
+// LayerParameter next available layer-specific ID: 151 (last added: pose_data_param)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -389,6 +389,8 @@ message LayerParameter {
   optional MVNParameter mvn_param = 120;
   optional ParameterParameter parameter_param = 145;
   optional PoolingParameter pooling_param = 121;
+  optional PoseDataParameter pose_data_param = 150;
+  optional PoseDistanceParameter pose_distance_param = 149;
   optional PowerParameter power_param = 122;
   optional PReLUParameter prelu_param = 131;
   optional PythonParameter python_param = 130;
@@ -430,6 +432,15 @@ message TransformationParameter {
   optional bool force_color = 6 [default = false];
   // Force the decoded image to have 1 color channels.
   optional bool force_gray = 7 [default = false];
+
+  // Parameters below are only applied to cv::Mat for PoseDataLayer
+  optional bool is_trans = 9 [default = false];
+  optional double trans_dx = 10 [default = 0.0];
+  optional double trans_dy = 11 [default = 0.0];
+  optional bool is_rotate = 12 [default = false];
+  optional double rotate_deg = 13 [default = 0.0];
+  optional bool is_zoom = 14 [default = false];
+  optional double zoom_scale = 15 [default = 0.0];
 }
 
 // Message that stores parameters shared by loss layers
@@ -923,6 +934,76 @@ message PoolingParameter {
   // If global_pooling then it will pool over the size of the bottom by doing
   // kernel_h = bottom->height and kernel_w = bottom->width
   optional bool global_pooling = 12 [default = false];
+}
+
+
+message PoseDataParameter {
+  // currently supported datasets
+  enum Dataset {
+    NYU = 0;
+    ICVL = 1;
+    MSRA = 2;
+    HANDS17 = 3;
+  }
+  // A file that contains the file list of images
+  optional string image_source = 1;
+  // A file that contains the corresponding annotations
+  optional string label_source = 2;
+  optional uint32 batch_size = 3 [default = 1];
+  // The rand_skip variable is for the data layer to skip a few data points
+  // to avoid all asynchronous sgd clients to start at the same point. The skip
+  // point would be set as rand_skip * rand(0,1). Note that rand_skip should not
+  // be larger than the number of keys in the database.
+  optional uint32 rand_skip = 4 [default = 0];
+  optional bool shuffle = 5 [default = false];
+  // The size of cropped images
+  optional uint32 new_height = 6 [default = 0];
+  optional uint32 new_width = 7 [default = 0];
+  // Directory of images
+  optional string root_folder = 8;
+  // The number of joints in hand pose
+  optional uint32 point_num = 9 [default = 0];
+  optional uint32 point_dim = 10 [default = 3];
+  // The intrinsic parameters of camera
+  optional float fx = 11 [default = 0];
+  optional float fy = 12 [default = 0];
+  optional bool output_center = 13 [default = false];
+  // A file that contains the centers of all images
+  optional string center_source = 14;
+  optional bool pre_crop = 15 [default = true];
+  // if lazy_load is true, depth images will be loaded when loading batch data
+  // to speed up training, all data will be loaded when the data layer setups (lazy_load = false)
+  optional bool lazy_load = 16 [default = false];
+  // if limit_num is explictly given, only load no more than limit_num images
+  // this is useful when trying to debug with just a few samples
+  optional uint32 limit_num = 17 [default = 0];
+  optional bool is_permute = 18 [default = false];
+  repeated uint32 permute_id = 19;  // where each point should put
+  repeated uint32 cube_length = 20;
+  optional Dataset dataset = 21 [default = NYU];
+  optional bool full_input = 22 [default = false];
+  // Only predict a specific joint is target_joint is provided
+  optional int32 target_joint = 23 [default = -1];
+  optional bool label_noise = 24 [default = false];
+  optional float label_std = 25 [default = 0.0];
+  // A file that contains bounding boxes of hands
+  optional string bbox_source = 26;
+  // Total frames in original dataset
+  // Only useful when there are several training samples that have the same depth image
+  // to avoid redutant memory usage
+  // e.g. Training stage 2 for Pose-REN (arXiv 2017, X. Chen) 
+  // In most cases you don't need it, just leave it alone
+  optional int32 total_images = 27 [default = 0]; 
+}
+
+message PoseDistanceParameter {
+  optional double fx = 1 [default = 0];
+  optional double fy = 2 [default = 0];
+  optional double ux = 3 [default = 0];
+  optional double uy = 4 [default = 0];
+  optional bool output_pose = 5 [default = false];
+  repeated uint32 permute_id = 6;  // where each point should put
+  repeated uint32 cube_length = 7;
 }
 
 message PowerParameter {
